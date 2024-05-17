@@ -29,4 +29,21 @@
     "type": "int",
     "help": "Number of samples to label in parallel",
     "param": "concurrency"
+}, {
+    "name": "Auto-convert videos",
+    "value": "false",
+    "type": "boolean",
+    "help": "If set, all videos are automatically split into individual images before labeling",
+    "param": "auto-convert-videos"
+}, {
+    "name": "Extract no. of frames per second",
+    "value": "10",
+    "type": "int",
+    "help": "If auto-convert videos is enabled, specify the no. of frames per second to extract from the videos",
+    "param": "extract-frames-per-second",
+    "showIf": {
+        "parameter": "auto-convert-videos",
+        "operator": "eq",
+        "value": "true"
+    }
 }]

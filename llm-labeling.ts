@@ -37,6 +37,8 @@ program
     )
     .option('--limit <n>', `Max number of samples to process`)
     .option('--concurrency <n>', `Concurrency (default: 1)`)
+    .option('--auto-convert-videos <value>', `Automatically split videos into individual frames (either 1 or 0 or "true" or "false")`)
+    .option('--extract-frames-per-second <n>', `If video conversion is enabled, how many frames per second to extract (default: 10)`)
     .option('--verbose', 'Enable debug logs')
     .allowUnknownOption(true)
     .parse(process.argv);
@@ -47,6 +49,13 @@ const promptArgv = <string>program.prompt;
 const disableLabelsArgv = (<string[]>(<string | undefined>program.disableLabels || '').split(',')).map(x => x.trim().toLowerCase()).filter(x => !!x);
 const limitArgv = program.limit ? Number(program.limit) : undefined;
 const concurrencyArgv = program.concurrency ? Number(program.concurrency) : 1;
+const autoConvertVideos = program.autoConvertVideos === '1' || program.autoConvertVideos === 'true';
+const framesPerSecond = autoConvertVideos ?
+    (program.extractFramesPerSecond ? Number(program.extractFramesPerSecond) : 10) : 10;
+
+if (isNaN(framesPerSecond)) {
+    throw new Error('--extract-frames-per-second should be numeric if --auto-convert-videos was passed in');
+}
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
@@ -66,7 +75,40 @@ const concurrencyArgv = program.concurrency ? Number(program.concurrency) : 1;
         console.log(`    Disable samples with labels: ${disableLabelsArgv.length === 0 ? '-' : disableLabelsArgv.join(', ')}`);
         console.log(`    Limit no. of samples to label to: ${typeof limitArgv === 'number' ? limitArgv.toLocaleString() : 'No limit'}`);
         console.log(`    Concurrency: ${concurrencyArgv}`);
+        console.log(`    Auto-convert videos: ${autoConvertVideos ? 'Yes' : 'No'}`);
+        if (autoConvertVideos) {
+            console.log(`    Video conversion fps: ${framesPerSecond})`);
+        }
         console.log(``);
+
+        if (autoConvertVideos) {
+            console.log(`Finding uncoverted videos...`);
+            const unconvertedVideos = await listAllVideos(project.id);
+            console.log(`Finding unconverted OK (found ${unconvertedVideos.length} samples)`);
+            console.log(``);
+
+            console.log(`Converting ${unconvertedVideos.length} videos...`);
+            let converted = 0;
+            let convertIv = setInterval(() => {
+                let currFile = (converted).toString().padStart(unconvertedVideos.length.toString().length, ' ');
+                console.log(`[${currFile}/${unconvertedVideos.length}] Still converting videos...`);
+            }, 3000);
+
+            try {
+                for (let s of unconvertedVideos) {
+                    await api.rawData.splitSampleInFrames(project.id, s.id, {
+                        fps: framesPerSecond
+                    });
+                    converted++;
+                }
+            }
+            finally {
+                clearInterval(convertIv);
+            }
+
+            console.log(`[${unconvertedVideos.length}/${unconvertedVideos.length}] Still converting videos...`);
+            console.log(`Converting ${unconvertedVideos.length} videos OK`);
+        }
 
         console.log(`Finding unlabeled data...`);
         const unlabeledSamples = await listAllUnlabeledData(project.id);
@@ -237,7 +279,7 @@ async function listAllUnlabeledData(projectId: number) {
                 break;
             }
             for (let s of ret.samples) {
-                if (s.label === '') {
+                if (s.label === '' && s.chartType === 'image') {
                     allSamples.push(s);
                 }
             }
@@ -254,7 +296,58 @@ async function listAllUnlabeledData(projectId: number) {
                 break;
             }
             for (let s of ret.samples) {
-                if (s.label === '') {
+                if (s.label === '' && s.chartType === 'image') {
+                    allSamples.push(s);
+                }
+            }
+            offset += limit;
+        }
+    }
+    finally {
+        clearInterval(iv);
+    }
+    return allSamples;
+}
+
+async function listAllVideos(projectId: number) {
+    const limit = 1000;
+    let offset = 0;
+    let allSamples: models.Sample[] = [];
+
+    let iv = setInterval(() => {
+        console.log(`Still listing videos (found ${allSamples.length} samples)...`);
+    }, 3000);
+
+    try {
+        while (1) {
+            let ret = await api.rawData.listSamples(projectId, {
+                category: 'training',
+                labels: '',
+                offset: offset,
+                limit: limit,
+            });
+            if (ret.samples.length === 0) {
+                break;
+            }
+            for (let s of ret.samples) {
+                if (s.chartType === 'video' && !s.isProcessing) {
+                    allSamples.push(s);
+                }
+            }
+            offset += limit;
+        }
+        while (1) {
+            let ret = await api.rawData.listSamples(projectId, {
+                category: 'testing',
+                labels: '',
+                offset: offset,
+                limit: limit,
+            });
+            if (ret.samples.length === 0) {
+                break;
+            }
+            for (let s of ret.samples) {
+                if (s.chartType === 'video' && !s.isProcessing) {
                     allSamples.push(s);
                 }
             }
