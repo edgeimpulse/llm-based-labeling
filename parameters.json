@@ -1,0 +1,32 @@
+[{
+    "name": "OpenAI API Key",
+    "value": "",
+    "type": "secret",
+    "help": "An API Key that gives access to OpenAI",
+    "param": "OPENAI_API_KEY"
+}, {
+    "name": "Prompt",
+    "value": "Is there a person in this picture? Respond only with \"yes\", \"no\" or \"unsure\" if you're not sure.",
+    "type": "string",
+    "help": "A prompt asking a question to the LLM. The answer should be a single label.",
+    "param": "prompt"
+}, {
+    "name": "Disable samples w/ label",
+    "value": "unsure",
+    "type": "string",
+    "help": "If a certain label is output, disable the data item - these are excluded from training.",
+    "param": "disable-labels"
+}, {
+    "name": "Max. no. of samples to label",
+    "value": "",
+    "type": "int",
+    "optional": true,
+    "help": "Number of samples to label",
+    "param": "limit"
+}, {
+    "name": "Concurrency",
+    "value": "10",
+    "type": "int",
+    "help": "Number of samples to label in parallel",
+    "param": "concurrency"
+}]
