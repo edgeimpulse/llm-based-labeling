@@ -140,10 +140,10 @@ if (isNaN(framesPerSecond)) {
 
         const labelSampleWithOpenAI = async (sample: models.Sample) => {
             try {
-                const resp = await retryWithTimeout(async () => {
+                const json = await retryWithTimeout(async () => {
                     const imgBuffer = await api.rawData.getSampleAsImage(project.id, sample.id, { });
 
-                    return await openai.chat.completions.create({
+                    const resp = await openai.chat.completions.create({
                         model: 'gpt-4o-2024-05-13',
                         messages: [{
                         role: 'system',
@@ -163,6 +163,36 @@ if (isNaN(framesPerSecond)) {
                             }]
                         }]
                     });
+
+                    // console.log('resp', JSON.stringify(resp, null, 4));
+
+                    if (resp.choices.length !== 1) {
+                        throw new Error('Expected choices to have 1 item (' + JSON.stringify(resp) + ')');
+                    }
+                    if (resp.choices[0].message.role !== 'assistant') {
+                        throw new Error('Expected choices[0].message.role to equal "assistant" (' + JSON.stringify(resp) + ')');
+                    }
+                    if (typeof resp.choices[0].message.content !== 'string') {
+                        throw new Error('Expected choices[0].message.content to be a string (' + JSON.stringify(resp) + ')');
+                    }
+
+                    let jsonContent: { label: string, reason: string };
+                    try {
+                        jsonContent = <{ label: string, reason: string }>JSON.parse(resp.choices[0].message.content);
+                        if (typeof jsonContent.label !== 'string') {
+                            throw new Error('label was not of type string');
+                        }
+                        if (typeof jsonContent.reason !== 'string') {
+                            throw new Error('reason was not of type string');
+                        }
+                    }
+                    catch (ex2) {
+                        let ex = <Error>ex2;
+                        throw new Error('Failed to parse message content: ' + (ex.message + ex.toString()) +
+                            ' (raw string: "' + resp.choices[0].message.content + '")');
+                    }
+
+                    return jsonContent;
                 }, {
                     fnName: 'completions.create',
                     maxRetries: 3,
@@ -172,50 +202,37 @@ if (isNaN(framesPerSecond)) {
                     },
                     onError: (ex) => {
                         let currFile = (processed).toString().padStart(total.toString().length, ' ');
-                        console.log(`[${currFile}/${total}] ERR: Failed to  ${sample.filename} (ID: ${sample.id}): ${ex.message || ex.toString()}.`);
+                        console.log(`[${currFile}/${total}] ERR: Failed to label ${sample.filename} (ID: ${sample.id}): ${ex.message || ex.toString()}.`);
                     },
                     timeoutMs: 60000,
                 });
 
-                if (resp.choices.length !== 1) {
-                    throw new Error('Expected choices to have 1 item (' + JSON.stringify(resp) + ')');
-                }
-                if (resp.choices[0].message.role !== 'assistant') {
-                    throw new Error('Expected choices[0].message.role to equal "assistant" (' + JSON.stringify(resp) + ')');
-                }
-                if (typeof resp.choices[0].message.content !== 'string') {
-                    throw new Error('Expected choices[0].message.content to be a string (' + JSON.stringify(resp) + ')');
-                }
-
-                let json: { label: string, reason: string };
-                try {
-                    json = <{ label: string, reason: string }>JSON.parse(resp.choices[0].message.content);
-                    if (typeof json.label !== 'string') {
-                        throw new Error('label was not of type string');
+                await retryWithTimeout(async () => {
+                    if (disableLabelsArgv.indexOf(json.label) > -1) {
+                        await api.rawData.disableSample(project.id, sample.id);
                     }
-                    if (typeof json.reason !== 'string') {
-                        throw new Error('reason was not of type string');
-                    }
-                }
-                catch (ex2) {
-                    let ex = <Error>ex2;
-                    throw new Error('Failed to parse message content: ' + (ex.message + ex.toString()) +
-                        '(' + resp.choices[0].message.content + ')');
-                }
-                // console.log('resp', JSON.stringify(resp, null, 4));
 
-                if (disableLabelsArgv.indexOf(json.label) > -1) {
-                    await api.rawData.disableSample(project.id, sample.id);
-                }
+                    await api.rawData.editLabel(project.id, sample.id, { label: json.label });
 
-                await api.rawData.editLabel(project.id, sample.id, { label: json.label });
+                    // update metadata
+                    sample.metadata = sample.metadata || {};
+                    sample.metadata.reason = json.reason;
 
-                // update metadata
-                sample.metadata = sample.metadata || {};
-                sample.metadata.reason = json.reason;
-
-                await api.rawData.setSampleMetadata(project.id, sample.id, {
-                    metadata: sample.metadata,
+                    await api.rawData.setSampleMetadata(project.id, sample.id, {
+                        metadata: sample.metadata,
+                    });
+                }, {
+                    fnName: 'edgeimpulse.api',
+                    maxRetries: 3,
+                    timeoutMs: 60000,
+                    onWarning: (retriesLeft, ex) => {
+                        let currFile = (processed).toString().padStart(total.toString().length, ' ');
+                        console.log(`[${currFile}/${total}] WARN: Failed to update metadata for ${sample.filename} (ID: ${sample.id}): ${ex.message || ex.toString()}. Retries left=${retriesLeft}`);
+                    },
+                    onError: (ex) => {
+                        let currFile = (processed).toString().padStart(total.toString().length, ' ');
+                        console.log(`[${currFile}/${total}] ERR: Failed to update metadata for ${sample.filename} (ID: ${sample.id}): ${ex.message || ex.toString()}.`);
+                    },
                 });
 
                 if (!labelCount[json.label]) {
