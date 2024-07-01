@@ -3,7 +3,7 @@ import Path from 'path';
 import program from 'commander';
 import { EdgeImpulseApi } from 'edge-impulse-api';
 import * as models from 'edge-impulse-api/build/library/sdk/model/models';
-import OpenAI from "openai";
+import OpenAI, { AzureOpenAI } from "openai";
 import asyncPool from 'tiny-async-pool';
 
 const packageVersion = (<{ version: string }>JSON.parse(fs.readFileSync(
@@ -13,19 +13,19 @@ if (!process.env.EI_PROJECT_API_KEY) {
     console.log('Missing EI_PROJECT_API_KEY');
     process.exit(1);
 }
-if (!process.env.OPENAI_API_KEY) {
-    console.log('Missing OPENAI_API_KEY');
-    process.exit(1);
-}
 
 let API_URL = process.env.EI_API_ENDPOINT || 'https://studio.edgeimpulse.com/v1';
 const API_KEY = process.env.EI_PROJECT_API_KEY;
 
 API_URL = API_URL.replace('/v1', '');
+if (API_URL.indexOf('localhost')) {
+    API_URL = API_URL.replace('localhost', 'host.docker.internal');
+}
 
 program
     .description('Label using an LLM ' + packageVersion)
     .version(packageVersion)
+    .option('--service <service>', `Either "openai" or "azure"`)
     .requiredOption('--prompt <prompt>',
         `A prompt asking a question to the LLM. ` +
         `The answer should be a single label. ` +
@@ -39,12 +39,15 @@ program
     .option('--concurrency <n>', `Concurrency (default: 1)`)
     .option('--auto-convert-videos <value>', `Automatically split videos into individual frames (either 1 or 0 or "true" or "false")`)
     .option('--extract-frames-per-second <n>', `If video conversion is enabled, how many frames per second to extract (default: 10)`)
+    .option('--azure-endpoint <endpoint>', `E.g. 'https://XXX.openai.azure.com/', required if service is "azure"`)
+    .option('--azure-deployment <deployment>', `Model deployment name from Azure OpenAI Studio`)
     .option('--verbose', 'Enable debug logs')
     .allowUnknownOption(true)
     .parse(process.argv);
 
 const api = new EdgeImpulseApi({ endpoint: API_URL });
 
+const serviceArgv = program.service ? <'openai' | 'azure'>program.service : 'openai';
 const promptArgv = <string>program.prompt;
 const disableLabelsArgv = (<string[]>(<string | undefined>program.disableLabels || '').split(',')).map(x => x.trim().toLowerCase()).filter(x => !!x);
 const limitArgv = program.limit ? Number(program.limit) : undefined;
@@ -52,15 +55,56 @@ const concurrencyArgv = program.concurrency ? Number(program.concurrency) : 1;
 const autoConvertVideos = program.autoConvertVideos === '1' || program.autoConvertVideos === 'true';
 const framesPerSecond = autoConvertVideos ?
     (program.extractFramesPerSecond ? Number(program.extractFramesPerSecond) : 10) : 10;
+const azureEndpointArgv = <string | undefined>program.azureEndpoint;
+const azureDeploymentArgv = <string | undefined>program.azureDeployment;
+
+if (serviceArgv !== 'azure' && serviceArgv !== 'openai') {
+    console.log('--service should be either "openai" or "azure" if specified (was: "' + serviceArgv + '")');
+    process.exit(1);
+}
+
+if (serviceArgv === 'openai') {
+    if (!process.env.OPENAI_API_KEY) {
+        console.log('Missing OPENAI_API_KEY');
+        process.exit(1);
+    }
+}
+if (serviceArgv === 'azure') {
+    if (!process.env.AZURE_OPENAI_API_KEY) {
+        console.log('Missing AZURE_OPENAI_API_KEY');
+        process.exit(1);
+    }
+    if (!azureEndpointArgv) {
+        console.log('Missing --azure-endpoint');
+        process.exit(1);
+    }
+    if (!azureDeploymentArgv) {
+        console.log('Missing --azure-deployment');
+        process.exit(1);
+    }
+}
 
 if (isNaN(framesPerSecond)) {
-    throw new Error('--extract-frames-per-second should be numeric if --auto-convert-videos was passed in');
+    console.log('--extract-frames-per-second should be numeric if --auto-convert-videos was passed in');
+    process.exit(1);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
     try {
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+        let openai: AzureOpenAI | OpenAI;
+        if (serviceArgv === 'openai') {
+            openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        }
+        else if (serviceArgv === 'azure') {
+            openai = new AzureOpenAI({
+                apiKey: process.env.AZURE_OPENAI_API_KEY,
+                apiVersion: '2024-02-01',
+                endpoint: azureEndpointArgv,
+                deployment: azureDeploymentArgv,
+            });
+        }
 
         await api.authenticate({
             method: 'apiKey',
