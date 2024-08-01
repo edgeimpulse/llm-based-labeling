@@ -305,6 +305,8 @@ async function listAllUnlabeledData(projectId: number) {
             }
             offset += limit;
         }
+
+        offset = 0;
         while (1) {
             let ret = await api.rawData.listSamples(projectId, {
                 category: 'testing',
