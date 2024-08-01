@@ -9,7 +9,8 @@
     "value": "Is there a person in this picture? Respond only with \"yes\", \"no\" or \"unsure\" if you're not sure.",
     "type": "string",
     "help": "A prompt asking a question to the LLM. The answer should be a single label.",
-    "param": "prompt"
+    "param": "prompt",
+    "multiline": true
 }, {
     "name": "Disable samples w/ label",
     "value": "unsure",
