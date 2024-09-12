@@ -12,8 +12,10 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "commander": "4.1.1",
-    "edge-impulse-api": "^1.49.31",
-    "openai": "^4.47.1",
+    "edge-impulse-api": "1.49.31",
+    "openai": "4.47.1",
+    "request": "2.88.0",
+    "request-promise": "4.2.4",
     "tiny-async-pool": "1.1.0",
     "ws": "7.2.0"
   },
@@ -21,6 +23,8 @@
     "@stylistic/eslint-plugin-ts": "1.8.1",
     "@types/commander": "2.12.2",
     "@types/node": "20.12.7",
+    "@types/request": "2.48.3",
+    "@types/request-promise": "4.1.45",
     "@types/tiny-async-pool": "1.0.0",
     "@types/ws": "6.0.3",
     "@typescript-eslint/eslint-plugin": "7.8.0",

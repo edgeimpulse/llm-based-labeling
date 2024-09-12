@@ -1,8 +1,8 @@
 import fs from 'fs';
 import Path from 'path';
 import program from 'commander';
-import { EdgeImpulseApi } from 'edge-impulse-api';
-import * as models from 'edge-impulse-api/build/library/sdk/model/models';
+import { EdgeImpulseApi } from './api-bindings';
+import * as models from './api-bindings/sdk/model/models';
 import OpenAI from "openai";
 import asyncPool from 'tiny-async-pool';
 
@@ -39,6 +39,8 @@ program
     .option('--concurrency <n>', `Concurrency (default: 1)`)
     .option('--auto-convert-videos <value>', `Automatically split videos into individual frames (either 1 or 0 or "true" or "false")`)
     .option('--extract-frames-per-second <n>', `If video conversion is enabled, how many frames per second to extract (default: 10)`)
+    .option('--data-ids-file <file>', 'File with IDs (as JSON)')
+    .option('--propose-actions <job-id>', 'If this flag is passed in, only propose suggested actions')
     .option('--verbose', 'Enable debug logs')
     .allowUnknownOption(true)
     .parse(process.argv);
@@ -55,9 +57,33 @@ const concurrencyArgv = program.concurrency ? Number(program.concurrency) : 1;
 const autoConvertVideos = program.autoConvertVideos === '1' || program.autoConvertVideos === 'true';
 const framesPerSecond = autoConvertVideos ?
     (program.extractFramesPerSecond ? Number(program.extractFramesPerSecond) : 10) : 10;
+const dataIdsFile = <string | undefined>program.dataIdsFile;
 
 if (isNaN(framesPerSecond)) {
-    throw new Error('--extract-frames-per-second should be numeric if --auto-convert-videos was passed in');
+    console.log('--extract-frames-per-second should be numeric if --auto-convert-videos was passed in');
+    process.exit(1);
+}
+let dataIds: number[] | undefined;
+if (dataIdsFile) {
+    if (!fs.existsSync(dataIdsFile)) {
+        console.log(`"${dataIdsFile}" does not exist (via --data-ids-file)`);
+        process.exit(1);
+    }
+    try {
+        dataIds = <number[]>JSON.parse(fs.readFileSync(dataIdsFile, 'utf-8'));
+        if (!Array.isArray(dataIds)) {
+            throw new Error('Content of the file is not an array');
+        }
+        for (let ix = 0; ix < dataIds.length; ix++) {
+            if (isNaN(dataIds[ix])) {
+                throw new Error('The value at index ' + ix + ' is not numeric');
+            }
+        }
+    }
+    catch (ex2) {
+        console.log(`Failed to parse "${dataIdsFile}" (via --data-ids-file), should be a JSON array with numbers`, ex2);
+        process.exit(1);
+    }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -81,6 +107,14 @@ if (isNaN(framesPerSecond)) {
         console.log(`    Auto-convert videos: ${autoConvertVideos ? 'Yes' : 'No'}`);
         if (autoConvertVideos) {
             console.log(`    Video conversion fps: ${framesPerSecond})`);
+        }
+        if (dataIds) {
+            if (dataIds.length < 5) {
+                console.log(`    IDs: ${dataIds.join(', ')}`);
+            }
+            else {
+                console.log(`    IDs: ${dataIds.slice(0, 5).join(', ')} and ${dataIds.length - 5} others`);
+            }
         }
         console.log(``);
 
@@ -113,14 +147,24 @@ if (isNaN(framesPerSecond)) {
             console.log(`Converting ${unconvertedVideos.length} videos OK`);
         }
 
-        console.log(`Finding unlabeled data...`);
-        const unlabeledSamples = await listAllUnlabeledData(project.id);
-        console.log(`Finding unlabeled data OK (found ${unlabeledSamples.length} samples)`);
-        console.log(``);
+        let samplesToProcess: models.Sample[];
+
+        if (dataIds) {
+            console.log(`Finding data by ID...`);
+            samplesToProcess = await listDataByIds(project.id, dataIds);
+            console.log(`Finding data by ID OK (found ${samplesToProcess.length} samples)`);
+            console.log(``);
+        }
+        else {
+            console.log(`Finding unlabeled data...`);
+            samplesToProcess = await listAllUnlabeledData(project.id);
+            console.log(`Finding unlabeled data OK (found ${samplesToProcess.length} samples)`);
+            console.log(``);
+        }
 
         const total = typeof limitArgv === 'number' ?
-            (unlabeledSamples.length > limitArgv ? limitArgv : unlabeledSamples.length) :
-            unlabeledSamples.length;
+            (samplesToProcess.length > limitArgv ? limitArgv : samplesToProcess.length) :
+            samplesToProcess.length;
         let processed = 0;
         let error = 0;
         let labelCount: { [k: string]: number } = { };
@@ -258,7 +302,7 @@ if (isNaN(framesPerSecond)) {
         try {
             console.log(`Labeling ${total.toLocaleString()} samples...`);
 
-            await asyncPool(concurrencyArgv, unlabeledSamples.slice(0, total), labelSampleWithOpenAI);
+            await asyncPool(concurrencyArgv, samplesToProcess.slice(0, total), labelSampleWithOpenAI);
 
             clearInterval(updateIv);
 
@@ -319,6 +363,59 @@ async function listAllUnlabeledData(projectId: number) {
             }
             for (let s of ret.samples) {
                 if (s.label === '' && s.chartType === 'image') {
+                    allSamples.push(s);
+                }
+            }
+            offset += limit;
+        }
+    }
+    finally {
+        clearInterval(iv);
+    }
+    return allSamples;
+}
+
+async function listDataByIds(projectId: number, ids: number[]) {
+    const limit = 1000;
+    let offset = 0;
+    let allSamples: models.Sample[] = [];
+
+    let iv = setInterval(() => {
+        console.log(`Still finding data (found ${allSamples.length} samples)...`);
+    }, 3000);
+
+    try {
+        while (1) {
+            let ret = await api.rawData.listSamples(projectId, {
+                category: 'training',
+                labels: '',
+                offset: offset,
+                limit: limit,
+            });
+            if (ret.samples.length === 0) {
+                break;
+            }
+            for (let s of ret.samples) {
+                if (ids.indexOf(s.id) !== -1) {
+                    allSamples.push(s);
+                }
+            }
+            offset += limit;
+        }
+
+        offset = 0;
+        while (1) {
+            let ret = await api.rawData.listSamples(projectId, {
+                category: 'testing',
+                labels: '',
+                offset: offset,
+                limit: limit,
+            });
+            if (ret.samples.length === 0) {
+                break;
+            }
+            for (let s of ret.samples) {
+                if (ids.indexOf(s.id) !== -1) {
                     allSamples.push(s);
                 }
             }

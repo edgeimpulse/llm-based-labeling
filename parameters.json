@@ -18,13 +18,6 @@
     "help": "If a certain label is output, disable the data item - these are excluded from training.",
     "param": "disable-labels"
 }, {
-    "name": "Max. no. of samples to label",
-    "value": "",
-    "type": "int",
-    "optional": true,
-    "help": "Number of samples to label",
-    "param": "limit"
-}, {
     "name": "Concurrency",
     "value": "10",
     "type": "int",
