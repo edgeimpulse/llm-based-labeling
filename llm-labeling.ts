@@ -58,9 +58,16 @@ const autoConvertVideos = program.autoConvertVideos === '1' || program.autoConve
 const framesPerSecond = autoConvertVideos ?
     (program.extractFramesPerSecond ? Number(program.extractFramesPerSecond) : 10) : 10;
 const dataIdsFile = <string | undefined>program.dataIdsFile;
+const proposeActionsJobId = program.proposeActions ?
+    Number(program.proposeActions) :
+    undefined;
 
 if (isNaN(framesPerSecond)) {
     console.log('--extract-frames-per-second should be numeric if --auto-convert-videos was passed in');
+    process.exit(1);
+}
+if (proposeActionsJobId && isNaN(proposeActionsJobId)) {
+    console.log('--propose-actions should be numeric');
     process.exit(1);
 }
 let dataIds: number[] | undefined;
@@ -255,19 +262,35 @@ if (dataIdsFile) {
                 });
 
                 await retryWithTimeout(async () => {
-                    if (disableLabelsArgv.indexOf(json.label) > -1) {
-                        await api.rawData.disableSample(project.id, sample.id);
-                    }
-
-                    await api.rawData.editLabel(project.id, sample.id, { label: json.label });
-
                     // update metadata
                     sample.metadata = sample.metadata || {};
                     sample.metadata.reason = json.reason;
 
-                    await api.rawData.setSampleMetadata(project.id, sample.id, {
-                        metadata: sample.metadata,
-                    });
+                    // dry-run, only propose?
+                    if (proposeActionsJobId) {
+                        await api.rawData.setSampleProposedChanges(project.id, sample.id, {
+                            jobId: proposeActionsJobId,
+                            proposedChanges: {
+                                isDisabled: disableLabelsArgv.indexOf(json.label) > 1 ?
+                                    true :
+                                    undefined /* otherwise, keep the current state */,
+                                label: json.label,
+                                metadata: sample.metadata,
+                            }
+                        });
+                    }
+                    // actually perform actions
+                    else {
+                        if (disableLabelsArgv.indexOf(json.label) > -1) {
+                            await api.rawData.disableSample(project.id, sample.id);
+                        }
+
+                        await api.rawData.editLabel(project.id, sample.id, { label: json.label });
+
+                        await api.rawData.setSampleMetadata(project.id, sample.id, {
+                            metadata: sample.metadata,
+                        });
+                    }
                 }, {
                     fnName: 'edgeimpulse.api',
                     maxRetries: 3,
