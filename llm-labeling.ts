@@ -116,7 +116,7 @@ if (dataIdsFile) {
             console.log(`    Video conversion fps: ${framesPerSecond})`);
         }
         if (dataIds) {
-            if (dataIds.length < 5) {
+            if (dataIds.length < 6) {
                 console.log(`    IDs: ${dataIds.join(', ')}`);
             }
             else {
@@ -168,6 +168,8 @@ if (dataIdsFile) {
             console.log(`Finding unlabeled data OK (found ${samplesToProcess.length} samples)`);
             console.log(``);
         }
+
+        samplesToProcess = samplesToProcess.sort((a, b) => a.id - b.id);
 
         const total = typeof limitArgv === 'number' ?
             (samplesToProcess.length > limitArgv ? limitArgv : samplesToProcess.length) :
@@ -271,7 +273,7 @@ if (dataIdsFile) {
                         await api.rawData.setSampleProposedChanges(project.id, sample.id, {
                             jobId: proposeActionsJobId,
                             proposedChanges: {
-                                isDisabled: disableLabelsArgv.indexOf(json.label) > 1 ?
+                                isDisabled: disableLabelsArgv.indexOf(json.label) > -1 ?
                                     true :
                                     undefined /* otherwise, keep the current state */,
                                 label: json.label,
