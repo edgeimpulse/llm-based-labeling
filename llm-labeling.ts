@@ -232,9 +232,16 @@ if (dataIdsFile) {
                         throw new Error('Expected choices[0].message.content to be a string (' + JSON.stringify(resp) + ')');
                     }
 
+                    let respBody = resp.choices[0].message.content;
+
+                    // many times we get a Markdown-like response... strip this
+                    if (respBody.startsWith('```json') && respBody.endsWith('```')) {
+                        respBody = respBody.slice('```json'.length, respBody.length - 3);
+                    }
+
                     let jsonContent: { label: string, reason: string };
                     try {
-                        jsonContent = <{ label: string, reason: string }>JSON.parse(resp.choices[0].message.content);
+                        jsonContent = <{ label: string, reason: string }>JSON.parse(respBody);
                         if (typeof jsonContent.label !== 'string') {
                             throw new Error('label was not of type string');
                         }
