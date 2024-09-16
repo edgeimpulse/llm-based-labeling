@@ -274,6 +274,8 @@ if (dataIdsFile) {
                     // update metadata
                     sample.metadata = sample.metadata || {};
                     sample.metadata.reason = json.reason;
+                    sample.metadata.labeled_by = 'gpt4o';
+                    sample.metadata.prompt = promptArgv;
 
                     // dry-run, only propose?
                     if (proposeActionsJobId) {
