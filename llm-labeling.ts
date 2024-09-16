@@ -9,10 +9,13 @@ import asyncPool from 'tiny-async-pool';
 const packageVersion = (<{ version: string }>JSON.parse(fs.readFileSync(
     Path.join(__dirname, '..', 'package.json'), 'utf-8'))).version;
 
+// This is passed in automatically for every job you run from a Data Source in Edge Impulse
 if (!process.env.EI_PROJECT_API_KEY) {
     console.log('Missing EI_PROJECT_API_KEY');
     process.exit(1);
 }
+
+// Specified in parameters.json as a secret
 if (!process.env.OPENAI_API_KEY) {
     console.log('Missing OPENAI_API_KEY');
     process.exit(1);
