@@ -242,6 +242,10 @@ if (dataIdsFile) {
                     let jsonContent: { label: string, reason: string };
                     try {
                         jsonContent = <{ label: string, reason: string }>JSON.parse(respBody);
+                        if (typeof jsonContent.label === 'number') {
+                            // e.g. when you prompt it to return a digit
+                            jsonContent.label = (<number>jsonContent.label).toString();
+                        }
                         if (typeof jsonContent.label !== 'string') {
                             throw new Error('label was not of type string');
                         }
@@ -274,7 +278,6 @@ if (dataIdsFile) {
                     // update metadata
                     sample.metadata = sample.metadata || {};
                     sample.metadata.reason = json.reason;
-                    sample.metadata.labeled_by = 'gpt4o';
                     sample.metadata.prompt = promptArgv;
 
                     // dry-run, only propose?
