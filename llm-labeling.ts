@@ -176,6 +176,8 @@ if (dataIdsFile) {
             samplesToProcess.length;
         let processed = 0;
         let error = 0;
+        let promptTokensTotal = 0;
+        let completionTokensTotal = 0;
         let labelCount: { [k: string]: number } = { };
 
         const getSummary = () => {
@@ -194,13 +196,15 @@ if (dataIdsFile) {
                 getSummary());
         }, 3000);
 
+        const model: OpenAI.Chat.ChatModel = 'gpt-4o-2024-05-13';
+
         const labelSampleWithOpenAI = async (sample: models.Sample) => {
             try {
                 const json = await retryWithTimeout(async () => {
                     const imgBuffer = await api.rawData.getSampleAsImage(project.id, sample.id, { });
 
                     const resp = await openai.chat.completions.create({
-                        model: 'gpt-4o-2024-05-13',
+                        model: model,
                         messages: [{
                         role: 'system',
                         content: `You always respond with the following JSON structure, regardless of the prompt: \`{ "label": "XXX", "reason": "YYY" }\`. ` +
@@ -221,6 +225,10 @@ if (dataIdsFile) {
                     });
 
                     // console.log('resp', JSON.stringify(resp, null, 4));
+                    if (resp.usage) {
+                        promptTokensTotal += resp.usage.prompt_tokens;
+                        completionTokensTotal += resp.usage.completion_tokens;
+                    }
 
                     if (resp.choices.length !== 1) {
                         throw new Error('Expected choices to have 1 item (' + JSON.stringify(resp) + ')');
@@ -344,7 +352,12 @@ if (dataIdsFile) {
             clearInterval(updateIv);
 
             console.log(`[${total}/${total}] Labeling samples... ` + getSummary());
-            console.log(`Done labeling samples, goodbye!`);
+            console.log(`Done labeling samples!`);
+            console.log(``);
+            console.log(`OpenAI usage info:`);
+            console.log(`    Model = ${model}`);
+            console.log(`    Input tokens = ${promptTokensTotal.toLocaleString()}`);
+            console.log(`    Output tokens = ${completionTokensTotal.toLocaleString()}`);
         }
         finally {
             clearInterval(updateIv);

@@ -1,43 +1,65 @@
-[{
-    "name": "OpenAI API Key",
-    "value": "",
-    "type": "secret",
-    "help": "An API Key that gives access to OpenAI",
-    "param": "OPENAI_API_KEY"
-}, {
-    "name": "Prompt",
-    "value": "Is there a person in this picture? Respond only with \"yes\", \"no\" or \"unsure\" if you're not sure.",
-    "type": "string",
-    "help": "A prompt asking a question to the LLM. The answer should be a single label.",
-    "param": "prompt",
-    "multiline": true
-}, {
-    "name": "Disable samples w/ label",
-    "value": "unsure",
-    "type": "string",
-    "help": "If a certain label is output, disable the data item - these are excluded from training.",
-    "param": "disable-labels"
-}, {
-    "name": "Concurrency",
-    "value": "10",
-    "type": "int",
-    "help": "Number of samples to label in parallel",
-    "param": "concurrency"
-}, {
-    "name": "Auto-convert videos",
-    "value": "false",
-    "type": "boolean",
-    "help": "If set, all videos are automatically split into individual images before labeling",
-    "param": "auto-convert-videos"
-}, {
-    "name": "Extract no. of frames per second",
-    "value": "10",
-    "type": "int",
-    "help": "If auto-convert videos is enabled, specify the no. of frames per second to extract from the videos",
-    "param": "extract-frames-per-second",
-    "showIf": {
-        "parameter": "auto-convert-videos",
-        "operator": "eq",
-        "value": "true"
-    }
-}]
+{
+    "version": 1,
+    "type": "transform",
+    "info": {
+        "name": "Label using GPT4o (AI Labeling)",
+        "description": "This block takes all your unlabeled image files, and asks GPT-4o to label them. Your prompt should return a single label, e.g. \"Is there a person in this picture? Answer with just 'yes' or 'no'.\"",
+        "operatesOn": "standalone",
+        "transformMountpoints": [],
+        "allowExtraCliArguments": false,
+        "cliArguments": "",
+        "indMetadata": true,
+        "showInCreateTransformationJob": false,
+        "showInDataSources": false
+    },
+    "parameters": [
+        {
+            "name": "OpenAI API Key",
+            "value": "",
+            "type": "secret",
+            "help": "An API Key that gives access to OpenAI",
+            "param": "OPENAI_API_KEY"
+        },
+        {
+            "name": "Prompt",
+            "value": "Is there a person in this picture? Respond only with \"yes\", \"no\" or \"unsure\" if you're not sure.",
+            "type": "string",
+            "help": "A prompt asking a question to the LLM. The answer should be a single label.",
+            "param": "prompt",
+            "multiline": true
+        },
+        {
+            "name": "Disable samples w/ label",
+            "value": "unsure",
+            "type": "string",
+            "help": "If a certain label is output, disable the data item - these are excluded from training.",
+            "param": "disable-labels"
+        },
+        {
+            "name": "Concurrency",
+            "value": "10",
+            "type": "int",
+            "help": "Number of samples to label in parallel",
+            "param": "concurrency"
+        },
+        {
+            "name": "Auto-convert videos",
+            "value": "false",
+            "type": "boolean",
+            "help": "If set, all videos are automatically split into individual images before labeling",
+            "param": "auto-convert-videos"
+        },
+        {
+            "name": "Extract no. of frames per second",
+            "value": "10",
+            "type": "int",
+            "help": "If auto-convert videos is enabled, specify the no. of frames per second to extract from the videos",
+            "param": "extract-frames-per-second",
+            "showIf": {
+                "parameter": "auto-convert-videos",
+                "operator": "eq",
+                "value": "true"
+            }
+        }
+    ]
+}
