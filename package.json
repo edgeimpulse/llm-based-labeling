@@ -13,7 +13,7 @@
   "dependencies": {
     "commander": "4.1.1",
     "edge-impulse-api": "1.49.31",
-    "openai": "4.47.1",
+    "openai": "4.67.2",
     "request": "2.88.0",
     "request-promise": "4.2.4",
     "tiny-async-pool": "1.1.0",

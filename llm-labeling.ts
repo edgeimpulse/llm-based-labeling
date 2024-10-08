@@ -196,7 +196,7 @@ if (dataIdsFile) {
                 getSummary());
         }, 3000);
 
-        const model: OpenAI.Chat.ChatModel = 'gpt-4o-2024-05-13';
+        const model: OpenAI.Chat.ChatModel = 'gpt-4o-2024-08-06';
 
         const labelSampleWithOpenAI = async (sample: models.Sample) => {
             try {
