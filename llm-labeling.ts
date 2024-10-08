@@ -35,6 +35,7 @@ program
         `E.g. your prompt can be: "If the picture is blurry, respond with 'blurry'", ` +
         `and add "blurry" to the disabled labels. Multiple labels can be split by ",".`
     )
+    .option('--image-quality <quality>', 'Quality of the image to send to GPT. Either "auto", "low" or "high" (default "auto")')
     .option('--limit <n>', `Max number of samples to process`)
     .option('--concurrency <n>', `Concurrency (default: 1)`)
     .option('--auto-convert-videos <value>', `Automatically split videos into individual frames (either 1 or 0 or "true" or "false")`)
@@ -52,6 +53,7 @@ const api = new EdgeImpulseApi({ endpoint: API_URL });
 // (you could use $'test\nanotherline' but we won't do that in the Edge Impulse backend)
 const promptArgv = (<string>program.prompt).replace('\\n', '\n');
 const disableLabelsArgv = (<string[]>(<string | undefined>program.disableLabels || '').split(',')).map(x => x.trim().toLowerCase()).filter(x => !!x);
+const imageQualityArgv = (<'auto' | 'low' | 'high'>program.imageQuality) || 'auto';
 const limitArgv = program.limit ? Number(program.limit) : undefined;
 const concurrencyArgv = program.concurrency ? Number(program.concurrency) : 1;
 const autoConvertVideos = program.autoConvertVideos === '1' || program.autoConvertVideos === 'true';
@@ -109,6 +111,7 @@ if (dataIdsFile) {
         console.log(`Labeling unlabeled data for "${project.owner} / ${project.name}"`);
         console.log(`    Prompt: "${promptArgv}"`);
         console.log(`    Disable samples with labels: ${disableLabelsArgv.length === 0 ? '-' : disableLabelsArgv.join(', ')}`);
+        console.log(`    Image quality: ${imageQualityArgv}`);
         console.log(`    Limit no. of samples to label to: ${typeof limitArgv === 'number' ? limitArgv.toLocaleString() : 'No limit'}`);
         console.log(`    Concurrency: ${concurrencyArgv}`);
         console.log(`    Auto-convert videos: ${autoConvertVideos ? 'Yes' : 'No'}`);
@@ -218,7 +221,7 @@ if (dataIdsFile) {
                                 type: 'image_url',
                                 image_url: {
                                     url: 'data:image/jpeg;base64,' + (imgBuffer.toString('base64')),
-                                    detail: 'auto'
+                                    detail: imageQualityArgv,
                                 }
                             }]
                         }]
