@@ -1,16 +1,9 @@
 {
     "version": 1,
-    "type": "transform",
+    "type": "ai-action",
     "info": {
         "name": "Label using GPT4o (AI Labeling)",
-        "description": "This block takes all your unlabeled image files, and asks GPT-4o to label them. Your prompt should return a single label, e.g. \"Is there a person in this picture? Answer with just 'yes' or 'no'.\"",
-        "operatesOn": "standalone",
-        "transformMountpoints": [],
-        "allowExtraCliArguments": false,
-        "cliArguments": "",
-        "indMetadata": true,
-        "showInCreateTransformationJob": false,
-        "showInDataSources": false
+        "description": "This block takes all your unlabeled image files, and asks GPT-4o to label them. Your prompt should return a single label, e.g. \"Is there a person in this picture? Answer with just 'yes' or 'no'.\""
     },
     "parameters": [
         {
@@ -40,9 +33,18 @@
             "value": "auto",
             "type": "select",
             "valid": [
-                { "label": "Auto, depending on image input size", "value": "auto" },
-                { "label": "Low-res mode ", "value": "low" },
-                { "label": "High-res mode", "value": "high" }
+                {
+                    "label": "Auto, depending on image input size",
+                    "value": "auto"
+                },
+                {
+                    "label": "Low-res mode ",
+                    "value": "low"
+                },
+                {
+                    "label": "High-res mode",
+                    "value": "high"
+                }
             ],
             "help": "Whether to send images in low (512x512) or high (using 512x512 tiles) resolution mode. If you don't need high fidelity inference then low-resolution saves a lot of tokens.",
             "param": "image-quality"
