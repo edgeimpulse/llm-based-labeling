@@ -51,7 +51,7 @@ const api = new EdgeImpulseApi({ endpoint: API_URL });
 // the replacement looks weird; but if calling this from CLI like
 // "--prompt 'test\nanother line'" we'll get this still escaped
 // (you could use $'test\nanotherline' but we won't do that in the Edge Impulse backend)
-const promptArgv = (<string>program.prompt).replace('\\n', '\n');
+const promptArgv = (<string>program.prompt).replaceAll('\\n', '\n');
 const disableLabelsArgv = (<string[]>(<string | undefined>program.disableLabels || '').split(',')).map(x => x.trim().toLowerCase()).filter(x => !!x);
 const imageQualityArgv = (<'auto' | 'low' | 'high'>program.imageQuality) || 'auto';
 const limitArgv = program.limit ? Number(program.limit) : undefined;
