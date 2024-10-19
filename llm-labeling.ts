@@ -1,8 +1,8 @@
 import fs from 'fs';
 import Path from 'path';
 import program from 'commander';
-import { EdgeImpulseApi } from './api-bindings';
-import * as models from './api-bindings/sdk/model/models';
+import { EdgeImpulseApi } from 'edge-impulse-api';
+import * as models from 'edge-impulse-api/build/library/';
 import OpenAI from "openai";
 import asyncPool from 'tiny-async-pool';
 

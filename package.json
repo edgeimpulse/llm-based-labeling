@@ -12,7 +12,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "commander": "4.1.1",
-    "edge-impulse-api": "1.49.31",
+    "edge-impulse-api": "1.60.7",
     "openai": "4.67.2",
     "request": "2.88.0",
     "request-promise": "4.2.4",
